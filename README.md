@@ -6,5 +6,5 @@ Window 기반 영상회의 프로그램
 - Signaling Server : https://github.com/step0698/webrtc_server
 
 ### Plugin 
-Socket.IO : https://github.com/itisnajim/SocketIOUnity
-WebRTC Socket : https://docs.unity3d.com/Packages/com.unity.webrtc@3.0/manual/index.html
+- Socket.IO : https://github.com/itisnajim/SocketIOUnity
+- WebRTC Socket : https://docs.unity3d.com/Packages/com.unity.webrtc@3.0/manual/index.html
