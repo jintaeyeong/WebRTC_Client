@@ -1,32 +1,122 @@
 ﻿using System;
 using System.Collections.Generic;
 using SocketIOClient;
-using SocketIOClient.Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.UI;
-using Newtonsoft.Json.Linq;
-
-using Debug = System.Diagnostics.Debug;
+using UnityEngine.Networking;
+using System.Threading.Tasks;
+using Unity.Android.Gradle.Manifest;
+using System.Linq;
 
 
 public class SocketManager : MonoBehaviour
 {
-    public SocketIOUnity socket;
+
+    [SerializeField] private string baseUrl = "http://192.168.1.66:3000";
+
+
+    public SocketIOUnity Socket;
 
     public InputField EventNameTxt;
     public InputField DataTxt;
-    public Text ReceivedText;  
+    public Text ReceivedText;
 
-    public GameObject objectToSpin;
+    private List<RoomList> responseRooms = new List<RoomList>();
 
     // Start is called before the first frame update
     void Start()
     {
-        //TODO: check the Uri if Valid.
-        //var uri = new Uri("http://192.168.1.66:3000");
+        Initialize();
+        
+        ConnectServer();
 
-        var uri = new Uri("http://192.168.1.107:11100");
-        socket = new SocketIOUnity(uri, new SocketIOOptions
+        ReceivedText.text = string.Empty;
+
+        Socket.OnAnyInUnityThread((name, response) =>
+        {
+            ReceivedText.text += "Received On " + name + " : " + response.GetValue().GetRawText() + "\n";
+        });
+    }
+
+
+    public void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            Debug.Log("방 생성");
+            //CreateRoom("태영방");
+        }
+
+        if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            Debug.Log("방 리스트 가져오기");
+            GetRoomList();
+        }
+
+        if (Input.GetKeyDown(KeyCode.Alpha3))
+        {
+            //Debug.Log("Offer/Answer 설정");
+
+            Debug.Log("방 입장");
+            JoinRoom();
+
+        }
+
+        if(Input.GetKeyDown(KeyCode.Alpha4))
+        {
+            Debug.Log("현재 방 나가기");
+            LeftRoom();
+        }
+
+        
+    }
+
+
+    async void OnApplicationQuit()
+    {
+        if (Socket != null && Socket.Connected)
+        {
+            await Socket.DisconnectAsync();
+        }
+        Socket?.Dispose();
+    }
+
+
+    [Serializable]
+    public class CreateRoomRequest
+    {
+        public string name;
+    }
+
+    [System.Serializable]
+    public class RoomListResponse
+    {
+        public int status;
+        public string message;
+        public RoomList[] data;
+    }
+
+    [Serializable]
+    public class RoomList
+    {
+        public string id;
+        public string roomCode;
+        public string name;
+        public string createAt;
+        public string updateAt;
+    }
+
+    private void Initialize()
+    {
+        responseRooms.Clear();
+    }
+
+    private void ConnectServer()
+    {
+        //TODO: check the Uri if Valid.
+        var uri = new Uri("http://192.168.1.66:3000");
+
+        Socket = new SocketIOUnity(uri, new SocketIOOptions
         {
             Query = new Dictionary<string, string>
                 {
@@ -37,137 +127,186 @@ public class SocketManager : MonoBehaviour
             ,
             Transport = SocketIOClient.Transport.TransportProtocol.WebSocket
         });
-        socket.JsonSerializer = new NewtonsoftJsonSerializer();
 
-        ///// reserved socketio events
-        socket.OnConnected += (sender, e) =>
+        ///// reserved Socketio events
+        Socket.OnConnected += (sender, e) =>
         {
-            Debug.Print("socket.OnConnected");
+            Debug.Log("Socket.OnConnected");
         };
-        socket.OnPing += (sender, e) =>
+        Socket.OnPing += (sender, e) =>
         {
-            Debug.Print("Ping");
+            Debug.Log("Ping");
         };
-        socket.OnPong += (sender, e) =>
+        Socket.OnPong += (sender, e) =>
         {
-            Debug.Print("Pong: " + e.TotalMilliseconds);
+            Debug.Log("Pong: " + e.TotalMilliseconds);
         };
-        socket.OnDisconnected += (sender, e) =>
+        Socket.OnDisconnected += (sender, e) =>
         {
-            Debug.Print("disconnect: " + e);
+            Debug.Log("disconnect: " + e);
         };
-        socket.OnReconnectAttempt += (sender, e) =>
+        Socket.OnReconnectAttempt += (sender, e) =>
         {
-            Debug.Print($"{DateTime.Now} Reconnecting: attempt = {e}");
+            Debug.Log($"{DateTime.Now} Reconnecting: attempt = {e}");
         };
         ////
 
-        Debug.Print("Connecting...");
-        socket.Connect();
-
-        socket.OnUnityThread("spin", (data) =>
-        {
-            rotateAngle = 0;
-        });
-
-        ReceivedText.text = "";
-        socket.OnAnyInUnityThread((name, response) =>
-        {
-            ReceivedText.text += "Received On " + name + " : " + response.GetValue().GetRawText() + "\n";
-        });
+        Debug.Log("Connecting...");
+        Socket.Connect();
     }
 
-    async void OnApplicationQuit()
+    public void CreateRoom(string roomName)
     {
-        if (socket != null && socket.Connected) 
+        string url = baseUrl + "/room";
+
+        CreateRoomRequest body = new CreateRoomRequest
         {
-            await socket.DisconnectAsync();
-        }
-        socket?.Dispose();
+            name = roomName
+        };
+        string json = JsonUtility.ToJson(body);
+
+        PostRequest(url, json);
     }
 
-    public void EmitTest()
+    public async void PostRequest(string url, string json)
     {
-        string eventName = EventNameTxt.text.Trim().Length < 1 ? "hello" : EventNameTxt.text;
-        string txt = DataTxt.text;
-        if (!IsJSON(txt))
+        UnityWebRequest request = new UnityWebRequest(url, "POST");
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
+
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+
+        await request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
         {
-            socket.Emit(eventName, txt);
+            Debug.LogError(request.error);
+            return;
         }
-        else
+
+        string responseJson = request.downloadHandler.text;
+        Debug.Log(responseJson);
+    }
+
+    private void GetRoomList()
+    {
+        responseRooms.Clear();
+        Task task = GetRoomListAsync();
+        if(task.IsCompleted)
         {
-            socket.EmitStringAsJSON(eventName, txt);
+            Debug.Log($"방 리스트 : {responseRooms.Count}");
         }
     }
 
-    public static bool IsJSON(string str)
+    private async Task GetRoomListAsync()
     {
-        if (string.IsNullOrWhiteSpace(str)) { return false; }
-        str = str.Trim();
-        if ((str.StartsWith("{") && str.EndsWith("}")) || //For object
-            (str.StartsWith("[") && str.EndsWith("]"))) //For array
+        string url = baseUrl + "/room/list";
+
+        UnityWebRequest request = UnityWebRequest.Get(url);
+
+        await request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
         {
-            try
+            Debug.LogError(request.error);
+            return;
+        }
+
+        string json = request.downloadHandler.text;
+        RoomListResponse response = JsonUtility.FromJson<RoomListResponse>(json);
+        if (response == null)
+        {
+            Debug.LogError("응답 파싱 실패");
+            return;
+        }
+
+        if (response.status != 200)
+        {
+            Debug.LogError("서버 오류: " + response.message);
+            return;
+        }
+
+        if (response.data == null || response.data.Length == 0)
+        {
+            Debug.Log("방이 없습니다.");
+            return;
+        }
+
+        foreach (RoomList room in response.data)
+        {
+            responseRooms.Add(room);
+            Debug.Log("방 ID: " + room.id);
+            Debug.Log("방 코드: " + room.roomCode);
+            Debug.Log("방 이름: " + room.name);
+        }
+    }
+
+    public class RequestJoinRoomData
+    {
+        public string roomCode;
+    }
+
+    public class ResponseJoinRoomData
+    {
+        public string roomCode;
+        public string peerId;
+        public User[] participants;
+    }
+
+    public class User
+    {
+        public string peerId;
+        public string joinedAt;
+    }
+
+    public List<User> Users = new List<User>();
+
+    private void JoinRoom()
+    {
+        string inputRoomCode = EventNameTxt.text;
+        
+        RequestJoinRoomData requestData = new RequestJoinRoomData();
+        requestData.roomCode = inputRoomCode;
+        Socket.Emit("room:join",(response) =>
+        {
+          var data = response.GetValue<ResponseJoinRoomData>();
+          Debug.Log(data.peerId);
+        }, 
+        requestData);
+
+        Users.Clear();
+        Socket.On("peer:joined", (response) =>
+        {
+            User user = response.GetValue<User>();
+            if(!Users.Contains(user))
             {
-                var obj = JToken.Parse(str);
-                return true;
-            }catch (Exception ex) //some other exception
+                Debug.Log("방 들어온 사람");
+                Debug.Log(user.peerId);
+                Users.Add(user);
+            } 
+        });
+    }
+
+    private void LeftRoom()
+    {
+        Socket.Emit("room:leave");
+    }
+
+    private void Temp()
+    {
+
+        
+
+        Socket.On("peer:left", (r) =>
+        {
+            string leftPeerId = r.ToString();
+            User user = Users.FirstOrDefault((user => user.peerId == leftPeerId));
+            if(user != null)
             {
-                Console.WriteLine(ex.ToString());
-                return false;
+                Debug.Log($"peerid : {user.peerId} left");
+                Users.Remove(user);
             }
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    public void EmitSpin()
-    {
-        socket.Emit("spin");
-    }
-
-    public void EmitClass()
-    {
-        TestClass testClass = new TestClass(new string[] { "foo", "bar", "baz", "qux" });
-        TestClass2 testClass2 = new TestClass2("lorem ipsum");
-        socket.Emit("class", testClass2);
-    }
-
-    // our test class
-    [System.Serializable]
-    class TestClass
-    {
-        public string[] arr;
-
-        public TestClass(string[] arr)
-        {
-            this.arr = arr;
-        }
-    }
-
-    [System.Serializable]
-    class TestClass2
-    {
-        public string text;
-
-        public TestClass2(string text)
-        {
-            this.text = text;
-        }
-    }
-    //
-
-
-    float rotateAngle = 45;
-    readonly float MaxRotateAngle = 45;
-    void Update()
-    {
-        if(rotateAngle < MaxRotateAngle)
-        {
-            rotateAngle++;
-            objectToSpin.transform.Rotate(0, 1, 0);
-        }
+        });
     }
 }
