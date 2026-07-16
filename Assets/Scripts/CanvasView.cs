@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,6 +8,7 @@ public class CanvasView : MonoBehaviour
 
     public Button RefreshRoom;
     public RoomItem RoomItemPrefab;
+    public RectTransform ContentTr;
 
     public InputField JoinRoomInputfield;
     public Button JoinRoom;
@@ -17,21 +17,24 @@ public class CanvasView : MonoBehaviour
     public SignalingManager SignalingManager;
     void Start()
     {
-        if (!string.IsNullOrEmpty(RoomNameInputField.text))
+        CreateRoom.onClick.AddListener(() =>
         {
-            CreateRoom.onClick.AddListener(() =>
+            if (!string.IsNullOrEmpty(RoomNameInputField.text))
             {
                 SignalingManager.CreateRoom(RoomNameInputField.text);
-            });
-        }
+            }
+        });
 
-        RefreshRoom.onClick.AddListener(() =>
+        RefreshRoom.onClick.AddListener(async () =>
         {
-            SignalingManager.FetchRoomList();
-            
-            for (int i = 0; i < SignalingManager.RoomState.CachedRooms.Count; i++)
+            ClearRoomItems();
+
+            var rooms = await SignalingManager.FetchRoomListAsync();
+
+            for (int i = 0; i < rooms.Count; i++)
             {   
-                Instantiate(RoomItemPrefab).SetItem(SignalingManager.RoomState.CachedRooms[i]);
+                RoomItem itme = Instantiate(RoomItemPrefab, ContentTr.transform);
+                itme.SetItem(rooms[i]);
             }
         });
 
@@ -41,5 +44,11 @@ public class CanvasView : MonoBehaviour
         });
     }
 
-
+    private void ClearRoomItems()
+    {
+        for (int i = ContentTr.childCount - 1; i >= 0; i--)
+        {
+            Destroy(ContentTr.GetChild(i).gameObject);
+        }
+    }
 }

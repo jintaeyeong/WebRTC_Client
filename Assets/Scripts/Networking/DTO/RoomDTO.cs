@@ -3,22 +3,22 @@ using System;
 
 
 [Serializable]
-public class CreateRoomRequestDTO
+public class CreateRoomRequestDto
 {
     public string name;
 }
 
 
 [Serializable]
-public class RoomListResponseDTO
+public class RoomListResponseDto
 {
     public int status;
     public string message;
-    public RoomDTO[] data;
+    public RoomDto[] data;
 }
 
 [Serializable]
-public class RoomDTO
+public class RoomDto
 {
     public string id;
     public string roomCode;
@@ -28,22 +28,22 @@ public class RoomDTO
 }
 
 [Serializable]
-public class JoinRoomRequestDTO
+public class JoinRoomRequestDto
 {
     
     public string roomCode;
 }
 
 [Serializable]
-public class JoinRoomResponseDTO
+public class JoinRoomResponseDto
 {
     public string roomCode;
     public string peerId;
-    public participantDTO[] participants;
+    public ParticipantDto[] participants;
 }
 
 [Serializable]
-public class participantDTO
+public class ParticipantDto
 {
     public string peerId;
     public string joinedAt;

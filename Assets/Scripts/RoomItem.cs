@@ -8,6 +8,6 @@ public class RoomItem : MonoBehaviour
     public void SetItem(RoomData room)
     {
         roomData = room;
-        roomName.text = roomData.name;
+        roomName.text = $"{roomData.name} / {roomData.roomCode}";
     }
 }

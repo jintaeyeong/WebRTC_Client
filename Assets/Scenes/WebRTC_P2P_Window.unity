@@ -1334,6 +1334,7 @@ MonoBehaviour:
   CreateRoom: {fileID: 1552826120}
   RefreshRoom: {fileID: 1358701222}
   RoomItemPrefab: {fileID: 7056999651871544197, guid: 459b3a5478f024f47b9b2f72ac037667, type: 3}
+  ContentTr: {fileID: 210452390}
   JoinRoomInputfield: {fileID: 851051765}
   JoinRoom: {fileID: 1358222481}
   LeaveRoom: {fileID: 2122890307}
@@ -3754,7 +3755,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1982278268}
   m_Layer: 0
-  m_Name: Space (1)
+  m_Name: Space
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
